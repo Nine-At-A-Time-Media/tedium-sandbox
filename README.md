@@ -21,3 +21,5 @@ Comment on a PR:
 - `tedium r+` (alias `tedium land`) -- queue for merge via `tedium/merge`
 - `tedium try` (alias `tedium dryrun`) -- dry-run batch via `tedium/try`
 - `tedium r-`, `tedium retry`, `tedium ping` -- the usual bors family
+
+Tire-kick PR marker: 001
