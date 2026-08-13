@@ -1,0 +1,7 @@
+# tedium config -- see template-tools packages/naatm-tedium
+# `ci` is the GitHub Actions job name in .github/workflows/ci.yml; it runs
+# on pushes to the tedium/merge and tedium/try staging branches.
+status = ["ci"]
+
+# Seconds to wait for those checks on the staging branch.
+timeout_sec = 3600
