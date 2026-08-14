@@ -23,3 +23,5 @@ Comment on a PR:
 - `tedium r-`, `tedium retry`, `tedium ping` -- the usual bors family
 
 Tire-kick PR marker: 001
+
+Tire-kick PR marker: 002
