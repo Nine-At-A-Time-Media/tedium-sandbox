@@ -25,3 +25,5 @@ Comment on a PR:
 Tire-kick PR marker: 001
 
 Tire-kick PR marker: 002
+
+Tire-kick PR marker: 004 (green half of bisection)
