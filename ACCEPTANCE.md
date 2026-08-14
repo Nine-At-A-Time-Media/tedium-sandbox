@@ -64,10 +64,48 @@ before ~35 min have passed.
 
 1. PR that sets `status.txt` to `red` -> `tedium land`.
 2. Expect: batch fails on `tedium/merge`, bot reports the failed `ci`
-   status, `main` does NOT move.
+   status, `main` does NOT move, PR stays open.
 
-Further destructive cases (conflicts, bisection, cancel storms, priority,
-squash double-bar): template-tools#386 matrix.
+Verified 2026-08-14 (sandbox PR 3): failed in ~40s, main unmoved.
+
+## M. Destructive matrix (each step re-runnable)
+
+### M1. Clean-state cancel (also template-tools#425 criterion a)
+
+1. On a green PR: `tedium land`, then `tedium cancel` within ~30s
+   (pre-build window).
+2. Expect: bot replies `Canceled.`; NO batch build results from the
+   canceled land; a fresh `tedium land` is accepted (NOT "Already
+   running a review") and merges normally.
+
+Verified 2026-08-14 (sandbox PR 2): fresh land accepted 21s after
+cancel, merged ~60s later. Caveat: cancel strictly mid-CI (~7s window
+here) not yet exercised; ghost-merge after cancel was only ever seen on
+the #421 crash-corrupted state.
+
+### M2. Red-bar bisection
+
+1. Have one green PR and one red PR (status.txt red) open.
+2. Comment `tedium land` on the green and `tedium retry` (or `land`) on
+   the red within ~10s (batch_delay window) so they batch together.
+3. Expect, in order:
+   - combined `Merge #A #B` build on `tedium/merge` goes red;
+   - both PRs get `Build failed (retrying...)` -- the split;
+   - the red PR's solo `Merge #B` fails -> `Build failed` names the
+     culprit, PR stays open;
+   - the green PR's solo `Merge #A` passes -> merged, main advances.
+
+Verified 2026-08-14 (sandbox PRs 3+4): full sequence in ~3 min
+(02:46:52 pair red -> 02:47:31 culprit isolated -> 02:49:35 green
+landed).
+
+### M3-M5. Remaining (unrun)
+
+- Conflict: two PRs touching the same line; land both; expect the
+  conflicted one reported and retried solo.
+- Priority: `tedium land p=10` jumps the queue.
+- Squash double-bar: `use_squash_merge = true` + a PR changing
+  `.github/workflows/` -- see template-tools#385/#386.
 
 ## Offboarding
 
