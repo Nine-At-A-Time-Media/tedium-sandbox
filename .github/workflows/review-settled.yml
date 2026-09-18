@@ -31,7 +31,15 @@ permissions:
 
 jobs:
   review-settled:
-    if: github.event_name != 'issue_comment' || github.event.issue.pull_request != null
+    # issue_comment also fires for plain issues; only PR comments matter.
+    # A fork PR is skipped on the events that carry a pull_request payload:
+    # its token is read-only, so the status could never be posted and
+    # tedium would wait on it forever. On issue_comment the payload has no
+    # head repo; the checker itself refuses a fork PR from the API's
+    # isCrossRepository. Fork PRs are human-merge.
+    if: >-
+      (github.event_name != 'issue_comment' || github.event.issue.pull_request != null)
+      && (github.event.pull_request == null || github.event.pull_request.head.repo.full_name == github.repository)
     uses: 9atatimer/tds-utils/.github/workflows/review-settled.yml@master
     permissions:
       statuses: write
