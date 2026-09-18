@@ -1,6 +1,7 @@
 # tedium config -- the go-live shape (template-tools#598), so the sandbox
-# exercises exactly what the real repos run. Read from main, never from
-# the PR (template-tools#595).
+# exercises exactly what the real repos run. tedium reads it from main
+# once template-tools#595 is deployed (case T1 proves that); until then
+# the bot reads the PR's copy and CODEOWNERS is the guard.
 
 # The always-present check on the staging commit: the gate job in
 # .github/workflows/ci.yml, which needs the ci job (green iff status.txt
