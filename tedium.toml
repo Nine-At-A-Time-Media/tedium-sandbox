@@ -1,7 +1,26 @@
-# tedium config -- see template-tools packages/naatm-tedium
-# `ci` is the GitHub Actions job name in .github/workflows/ci.yml; it runs
-# on pushes to the tedium/merge and tedium/try staging branches.
-status = ["ci"]
+# tedium config -- the go-live shape (template-tools#598), so the sandbox
+# exercises exactly what the real repos run. Read from main, never from
+# the PR (template-tools#595).
+
+# The always-present check on the staging commit: the gate job in
+# .github/workflows/ci.yml, which needs the ci job (green iff status.txt
+# says green).
+status = ["gate"]
+
+# Must be green on the PR head before it is batched: Copilot's newest
+# review on the head and every thread resolved.
+pr_status = ["review-settled"]
+
+# A PR carrying this label is never batched.
+block_labels = ["hold"]
+
+# Small batches so the bisection cases stay readable.
+max_batch_size = 3
 
 # Seconds to wait for those checks on the staging branch.
 timeout_sec = 3600
+
+delete_merged_branches = true
+
+# PRs touching the paths CODEOWNERS names need a code-owner approval.
+use_codeowners = true
