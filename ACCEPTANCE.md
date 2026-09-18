@@ -144,8 +144,10 @@ P1/P2 and the nonprod worker deployed with template-tools#594, #595 and
 ### T3. A `hold` label keeps a PR out of the queue
 
 1. Label a green PR `hold`; `tedium land`.
-2. Expect the `blocked_labels` preflight refusal; remove the label,
-   `tedium retry`, expect it to land.
+2. Expect the block-label preflight refusal (`:-1: Rejected by label`;
+   tedium's reason tag is `blocked_labels`, bors parity, while the
+   `tedium.toml` key is `block_labels`); remove the label, `tedium retry`,
+   expect it to land.
 
 ### T4. A stale review is refused (review-settled freshness)
 
