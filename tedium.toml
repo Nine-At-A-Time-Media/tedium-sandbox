@@ -15,6 +15,14 @@ pr_status = ["review-settled"]
 # A PR carrying this label is never batched.
 block_labels = ["hold"]
 
+# At least one human approving review is required on every PR, not only
+# the ones CODEOWNERS names -- without this, the default is null (no
+# minimum), and pr_status = ["review-settled"] alone is satisfiable by a
+# bot review with threads resolved, so a PR could land with zero human
+# sign-off. This go-live shape requires one; if that was meant to be 0,
+# say so in review.
+required_approvals = 1
+
 # Small batches so the bisection cases stay readable.
 max_batch_size = 3
 
