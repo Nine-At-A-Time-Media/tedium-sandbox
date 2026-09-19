@@ -15,13 +15,14 @@ pr_status = ["review-settled"]
 # A PR carrying this label is never batched.
 block_labels = ["hold"]
 
-# At least one human approving review is required on every PR, not only
-# the ones CODEOWNERS names -- without this, the default is null (no
-# minimum), and pr_status = ["review-settled"] alone is satisfiable by a
-# bot review with threads resolved, so a PR could land with zero human
-# sign-off. This go-live shape requires one; if that was meant to be 0,
-# say so in review.
-required_approvals = 1
+# NO required_approvals. It is deliberately absent, and the sandbox is
+# wrong the moment it comes back: none of the three go-live repos
+# (template-tools, tds-utils, Skills) set it, and this file exists to
+# run exactly what they run. It is also unsatisfiable here -- every PR
+# in this org is authored by the one account that could approve it, and
+# GitHub refuses a self-approval, so any value above 0 deadlocks every
+# landing (tds-internal#68). The human gate is CODEOWNERS on the paths
+# that matter (use_codeowners below), not a blanket minimum.
 
 # Small batches so the bisection cases stay readable.
 max_batch_size = 3
