@@ -21,7 +21,7 @@ Substitute `$HOST` = `tedium.nonprod.api9.com` (nonprod) or
 
 | # | Step | Verify |
 |---|------|--------|
-| P1 | Repo exists with `tedium.toml` in the go-live shape: `status = ["gate"]`, `pr_status = ["review-settled"]`, `block_labels = ["hold"]`, `required_approvals = 1`, `use_codeowners = true`; `timeout_sec` and `max_batch_size` are repo-tuned, not pinned to this sandbox's values -- this repo uses `timeout_sec = 3600`, `max_batch_size = 3` | file at repo root |
+| P1 | Repo exists with `tedium.toml` in the go-live shape: `status = ["gate"]`, `pr_status = ["review-settled"]`, `block_labels = ["hold"]`, `use_codeowners = true`, and NO `required_approvals` (see `tedium.toml`); `timeout_sec` and `max_batch_size` are repo-tuned, not pinned to this sandbox's values -- this repo uses `timeout_sec = 3600`, `max_batch_size = 3` | file at repo root |
 | P2 | CI workflow with a `ci` job and an always-present `gate` job needing it, triggering on push to `main`, `tedium/merge`, `tedium/try` + `pull_request`; a `review-settled` workflow calling the tds-utils reusable workflow; `CODEOWNERS` naming `tedium.toml`, `CODEOWNERS`, `.github/workflows/` | `.github/workflows/ci.yml`, `.github/workflows/review-settled.yml`, `CODEOWNERS` |
 | P3 | Green/red toggle: CI passes iff `status.txt` contains exactly `green` | `grep -qx green status.txt` |
 | P4 | GitHub App (`tedium-<env>`) installed, **Only select repositories** -> this repo only | `gh api orgs/<org>/installations` shows `repository_selection: selected` |
