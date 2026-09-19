@@ -21,8 +21,8 @@ Substitute `$HOST` = `tedium.nonprod.api9.com` (nonprod) or
 
 | # | Step | Verify |
 |---|------|--------|
-| P1 | Repo exists with `tedium.toml` (`status = ["ci"]`, `timeout_sec = 3600`) | file at repo root |
-| P2 | CI workflow job named exactly `ci`, triggering on push to `main`, `tedium/merge`, `tedium/try` + `pull_request` | `.github/workflows/ci.yml` |
+| P1 | Repo exists with `tedium.toml` in the go-live shape: `status = ["gate"]`, `pr_status = ["review-settled"]`, `block_labels = ["hold"]`, `required_approvals = 1`, `use_codeowners = true`; `timeout_sec` and `max_batch_size` are repo-tuned, not pinned to this sandbox's values -- this repo uses `timeout_sec = 3600`, `max_batch_size = 3` | file at repo root |
+| P2 | CI workflow with a `ci` job and an always-present `gate` job needing it, triggering on push to `main`, `tedium/merge`, `tedium/try` + `pull_request`; a `review-settled` workflow calling the tds-utils reusable workflow; `CODEOWNERS` naming `tedium.toml`, `CODEOWNERS`, `.github/workflows/` | `.github/workflows/ci.yml`, `.github/workflows/review-settled.yml`, `CODEOWNERS` |
 | P3 | Green/red toggle: CI passes iff `status.txt` contains exactly `green` | `grep -qx green status.txt` |
 | P4 | GitHub App (`tedium-<env>`) installed, **Only select repositories** -> this repo only | `gh api orgs/<org>/installations` shows `repository_selection: selected` |
 | P5 | App events include at least `issue_comment`, `check_suite`, `pull_request` | same API call, `events` array |
@@ -45,8 +45,8 @@ Then, each step is a PR comment; watch with
 | # | Comment | Expect | Proves |
 |---|---------|--------|--------|
 | A1 | `tedium ping` | `pong` from `tedium-<env>[bot]` within seconds | webhook delivery + enrollment |
-| A2 | `tedium dryrun` | `tedium/try` branch created, `Try #<pr>:` commit, `ci` run green, then a `## try` success comment on the PR | branch + CI wiring, attemptor |
-| A3 | `tedium land` | PR batched onto `tedium/merge`; when `ci` is green there, `main` fast-forwards to include it; PR closed as merged | full landing path |
+| A2 | `tedium dryrun` | `tedium/try` branch created, `Try #<pr>:` commit, `gate` run green, then a `## try` success comment on the PR | branch + CI wiring, attemptor |
+| A3 | request a Copilot review, resolve its threads, then `tedium land` | `review-settled` green on the head first (red before the review, red while a thread is open); PR batched onto `tedium/merge`; when `gate` is green there, `main` fast-forwards to include it; PR closed as merged | full landing path incl. the review gate |
 | A4 | Dashboard at `https://$HOST/` lists the repo (behind Access login) | dashboard + syncer |
 
 ### Timing caveat found on first run (A2/A3)
@@ -106,6 +106,112 @@ landed).
 - Priority: `tedium land p=10` jumps the queue.
 - Squash double-bar: `use_squash_merge = true` + a PR changing
   `.github/workflows/` -- see template-tools#385/#386.
+
+## T. Go-live cases (added 2026-09-18; template-tools#386 go-live note)
+
+These exercise what the go-live set adds. Run with the go-live config in
+P1/P2 and the nonprod worker deployed with template-tools#594, #595 and
+#597's consumers.
+
+Cross-repo dependencies, all open as of 2026-09-18:
+
+- tds-utils#293 -- the `review-settled` reusable workflow. This repo's
+  `.github/workflows/review-settled.yml` calls it at `@master`, and the
+  workflow does not exist on tds-utils `main` yet, so the job fails at
+  workflow resolution today (confirmed against this PR's own run
+  history: `.github/workflows/review-settled.yml` completes in 0s with
+  `failure`). Every T-case below that depends on `review-settled` going
+  green is blocked until #293 merges.
+- tds-internal#57 -- the GitHub-side rulesets (branch protection). Until
+  it lands, nothing in this repo enforces `tedium.toml` or CODEOWNERS
+  except cooperatively; see this PR's "Rejected" comment for what that
+  means for T1 and T5 here.
+- T1 is additionally blocked on template-tools#604 (tedium.toml read
+  from the base branch, not the PR's copy) -- run today, it exercises
+  the PR's-copy behavior, not the base-branch behavior T1 exists to
+  prove.
+- T2 is additionally blocked on template-tools#606 (pause/kill switch)
+  -- the `/api/admin/pause` endpoint does not exist until #606 lands.
+
+### T1. A batch that edits tedium.toml is judged by main's rules (#595)
+
+Steps run in order -- each depends on the state the previous one left:
+
+- Open a PR whose only change is `tedium.toml` with `status = []` and
+  `block_labels = ["x"]` (a config that validates and, if the PR's copy
+  were in force, would make the batch green instantly with no check).
+- Get it to `review-settled` green, then `tedium land`.
+- Expect: tedium seeds a `gate` status row and the batch waits for
+  `gate` on `tedium/merge` (`Build succeeded: gate` once CI reports);
+  it does NOT complete before the check runs. Because CODEOWNERS names
+  `tedium.toml`, expect the land to be refused first with the
+  code-owner-approval preflight message until an owner approves --
+  that refusal is itself part of the case.
+- Reverse the change (or close the PR) so main keeps the go-live shape.
+
+### T2. A paused project refuses land (#594)
+
+Steps run in order:
+
+- `cloudflared access curl https://$HOST/api/admin/pause -X POST -H
+  'content-type: application/json' -d '{"project":"$REPO","reason":"T2"}'`
+  (or the dashboard's Pause button). `GET /api/admin/pauses` lists it.
+- On a green, review-settled PR: `tedium land`.
+- Expect: a bot comment naming the pause and the reason `T2`; no batch;
+  `tedium dryrun` on the same PR still runs (dryrun is not paused).
+- `POST /api/admin/resume` with the same project; expect the queue to
+  move at once: `tedium retry` (or `land`) on the PR lands it without
+  waiting for the 30-minute sweep.
+- Global variant: pause with no `project`; the same PR is refused; the
+  dashboard shows the banner on every repo; resume with no `project`.
+
+### T3. A `hold` label keeps a PR out of the queue
+
+- The `hold` label does not exist in this repo by default -- create it
+  first if it is not already there: `gh label create hold --repo $REPO
+  --description "tedium: never batch this PR" --color d93f0b` (skip if
+  it already exists).
+- Label a green PR `hold`; `tedium land`.
+- Expect the block-label preflight refusal (`:-1: Rejected by label`;
+  tedium's reason tag is `blocked_labels`, bors parity, while the
+  `tedium.toml` key is `block_labels`); remove the label, `tedium retry`,
+  expect it to land.
+
+### T4. A stale review is refused (review-settled freshness)
+
+Steps run in order:
+
+- On a PR with `review-settled` green, push one more trivial commit.
+- `tedium land` before Copilot re-reviews: expect the `pr_status`
+  preflight refusal (`review-settled` is red on the new head: "newest
+  review ... is on <old sha>").
+- Re-request Copilot, resolve, comment; expect green, then land.
+
+### T5. An ordinary PR with no human review is refused for want of approval (required_approvals)
+
+T1-T4 each demonstrate a refusal for one narrow condition; none of them
+exercises the default this go-live shape now overrides -- `tedium.toml`
+sets `required_approvals = 1` (see this repo's tedium.toml comment and
+this PR's "Accepted and fixed" note) precisely because passing T1-T4
+certifies nothing about whether unreviewed code can merge. Steps run in
+order:
+
+- Open an ordinary PR with a trivial green change that does NOT touch
+  any CODEOWNERS path (so `checkCodeOwner` is not itself the reason for
+  a refusal).
+- Request a Copilot review and resolve every thread so `review-settled`
+  goes green. Do not request or obtain any human approving review.
+- `tedium land`.
+- Expect the review-count preflight refusal (`:-1: Rejected by too few
+  approved reviews`) -- CI green and `review-settled` green are not
+  enough on their own to land.
+- Get one human approving review, `tedium retry`; expect it to land.
+
+### Rollout order once T1-T5 pass here
+
+tds-utils -> Skills -> template-tools: on each, one `tedium dryrun` and
+one trivial `tedium land` (a README marker, as A1-A3 above) before any
+real PR is landed by an agent.
 
 ## Offboarding
 

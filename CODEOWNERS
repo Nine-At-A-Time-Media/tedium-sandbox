@@ -1,0 +1,6 @@
+# CODEOWNERS -- read by tedium from main (use_codeowners = true): a PR
+# touching these paths needs an approving review from an owner before
+# the bot lands it. Same paths as the real repos.
+tedium.toml          @9atatimer
+CODEOWNERS           @9atatimer
+.github/workflows/   @9atatimer

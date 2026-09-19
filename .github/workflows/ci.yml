@@ -1,3 +1,8 @@
+# ci.yml -- the sandbox's bar. `ci` is green iff status.txt says green
+# (a red bar on demand for the destructive cases). `gate` is the
+# always-present check tedium waits for and the go-live ruleset shape
+# requires (template-tools#598): it needs every job, runs if: always(),
+# and is red on failure or cancellation.
 name: ci
 
 on:
@@ -16,3 +21,21 @@ jobs:
       - name: bar is green iff status.txt says green
         run: |
           grep -qx 'green' status.txt
+
+  gate:
+    name: gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    if: always()
+    needs: [ci]
+    permissions: {}
+    steps:
+      - name: Every needed job succeeded
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          echo "$RESULTS"
+          if echo "$RESULTS" | grep -Eq '"result": *"(failure|cancelled|skipped)"'; then
+            echo "::error::a needed job failed, was cancelled, or was skipped"
+            exit 1
+          fi

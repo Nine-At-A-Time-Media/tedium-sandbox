@@ -1,7 +1,35 @@
-# tedium config -- see template-tools packages/naatm-tedium
-# `ci` is the GitHub Actions job name in .github/workflows/ci.yml; it runs
-# on pushes to the tedium/merge and tedium/try staging branches.
-status = ["ci"]
+# tedium config -- the go-live shape (template-tools#598), so the sandbox
+# exercises exactly what the real repos run. tedium reads it from main
+# once template-tools#595 is deployed (case T1 proves that); until then
+# the bot reads the PR's copy and CODEOWNERS is the guard.
+
+# The always-present check on the staging commit: the gate job in
+# .github/workflows/ci.yml, which needs the ci job (green iff status.txt
+# says green).
+status = ["gate"]
+
+# Must be green on the PR head before it is batched: Copilot's newest
+# review on the head and every thread resolved.
+pr_status = ["review-settled"]
+
+# A PR carrying this label is never batched.
+block_labels = ["hold"]
+
+# At least one human approving review is required on every PR, not only
+# the ones CODEOWNERS names -- without this, the default is null (no
+# minimum), and pr_status = ["review-settled"] alone is satisfiable by a
+# bot review with threads resolved, so a PR could land with zero human
+# sign-off. This go-live shape requires one; if that was meant to be 0,
+# say so in review.
+required_approvals = 1
+
+# Small batches so the bisection cases stay readable.
+max_batch_size = 3
 
 # Seconds to wait for those checks on the staging branch.
 timeout_sec = 3600
+
+delete_merged_branches = true
+
+# PRs touching the paths CODEOWNERS names need a code-owner approval.
+use_codeowners = true
