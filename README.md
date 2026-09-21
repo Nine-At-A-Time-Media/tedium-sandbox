@@ -29,3 +29,5 @@ Tire-kick PR marker: 002
 Tire-kick PR marker: 004 (green half of bisection)
 
 Tire-kick PR marker: 006 (fast-forward land, 429 criterion 1)
+
+Tire-kick PR marker: 007 (go-live build, worker from template-tools 07ff3d4)
