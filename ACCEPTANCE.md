@@ -60,6 +60,23 @@ minutes to report even though CI finished in seconds. Tracked in
 template-tools (attemptor poll-gate issue). Do not declare A2 failed
 before ~35 min have passed.
 
+### Timing caveat found on the 2026-09-20 run (A3)
+
+A `land` issued while the reviewer is still thinking is refused with
+`:-1: Rejected by PR status`, and the refusal looks exactly like a
+config problem. On PR 9 the sequence was:
+
+```
+00:25:10  tedium land
+00:25:14  :-1: Rejected by PR status
+00:25:29  review-settled flips to success (Copilot's review posts)
+```
+
+Fifteen seconds. The preflight was right -- `review-settled` really was
+red when it read it. `tedium retry` replayed the command and it landed
+in 39s. Before debugging a PR-status refusal, check whether the reviewer
+has posted on the current head yet.
+
 ## R. Red-bar case (destructive matrix entry)
 
 1. PR that sets `status.txt` to `red` -> `tedium land`.
@@ -187,25 +204,38 @@ Steps run in order:
   review ... is on <old sha>").
 - Re-request Copilot, resolve, comment; expect green, then land.
 
-### T5. An ordinary PR with no human review is refused for want of approval (required_approvals)
+### T5. Nothing lands without a human issuing the command
 
-T1-T4 each demonstrate a refusal for one narrow condition; none of them
-exercises the default this go-live shape now overrides -- `tedium.toml`
-sets `required_approvals = 1` (see this repo's tedium.toml comment and
-this PR's "Accepted and fixed" note) precisely because passing T1-T4
-certifies nothing about whether unreviewed code can merge. Steps run in
-order:
+T1-T4 each demonstrate a refusal for one narrow condition. None of them
+answers the question that matters at go-live: can code reach `main` with
+no human in the loop?
+
+Under this config shape the answer is that the human IS the loop. There
+is no `required_approvals` -- it is not part of the go-live shape, and
+no account in this org could satisfy it anyway (GitHub refuses a
+self-approval and a Copilot review is a review, not an approval). What
+stands in its place is the command itself: `tedium land` from someone
+with write access IS the merge decision, and tedium does nothing until
+one arrives. This case proves that boundary holds.
+
+Steps run in order:
 
 - Open an ordinary PR with a trivial green change that does NOT touch
-  any CODEOWNERS path (so `checkCodeOwner` is not itself the reason for
-  a refusal).
+  any CODEOWNERS path (so `checkCodeOwner` is not what refuses it).
 - Request a Copilot review and resolve every thread so `review-settled`
-  goes green. Do not request or obtain any human approving review.
-- `tedium land`.
-- Expect the review-count preflight refusal (`:-1: Rejected by too few
-  approved reviews`) -- CI green and `review-settled` green are not
-  enough on their own to land.
-- Get one human approving review, `tedium retry`; expect it to land.
+  goes green. Let CI go green. Issue NO command.
+- Expect: nothing happens. No batch, no `tedium/merge` build, no merge,
+  indefinitely. Green CI and a settled review do not themselves start
+  anything -- confirm `main` is unmoved and the PR is still open after
+  the poll period (`batch_poll_period_sec`, default 1800s) has elapsed.
+- Then `tedium land` and expect it to land, proving the PR was landable
+  the whole time and only the command was missing.
+- Variant, cheaper to run: on the same PR, `tedium dryrun` first. A
+  dryrun builds and reports without merging, so a green `## try` with
+  `main` still unmoved is the same proof in ~30 seconds.
+
+A PR touching a CODEOWNERS path adds a second gate on top of this one
+(`use_codeowners = true`); T1 covers that refusal.
 
 ### Rollout order once T1-T5 pass here
 
