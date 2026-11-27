@@ -2,7 +2,8 @@
 # iff Copilot's newest review is on the current head and every review
 # thread is resolved (template-tools#597). tedium checks it in pr_status
 # before batching, which is what the T-series acceptance cases exercise.
-# Checker: the reusable workflow in the public tds-utils repo.
+# Checker: the reusable workflow in 9atatimer/workflows (tds-utils is going
+# private; 9atatimer/tds-utils Issue#830).
 
 name: review-settled
 
@@ -40,7 +41,7 @@ jobs:
     if: >-
       (github.event_name != 'issue_comment' || github.event.issue.pull_request != null)
       && (github.event.pull_request == null || github.event.pull_request.head.repo.full_name == github.repository)
-    uses: 9atatimer/tds-utils/.github/workflows/review-settled.yml@master
+    uses: 9atatimer/workflows/.github/workflows/review-settled.yml@main
     permissions:
       statuses: write
       pull-requests: read
